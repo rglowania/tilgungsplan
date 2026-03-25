@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tilgungsplan-Rechner</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+
+/* ═══════════════════════════════════════════════════════════════
+   G-DESIGN — Template v1.1
+   ═══════════════════════════════════════════════════════════════ */
+:root,[data-theme="dark"]{
+  --bg:#0c1410;--surface:#13201a;--surface2:#192b22;--border:#213328;
+  --accent:#5d9e7a;--accent-lt:#89c4a2;--accent-dim:rgba(93,158,122,0.13);
+  --text:#ddeee5;--text-muted:#6e9480;
+}
+[data-theme="light"]{
+  --bg:#f0f7f3;--surface:#ffffff;--surface2:#e6f2eb;--border:#bdd8c8;
+  --accent:#2e7a50;--accent-lt:#1e5c3a;--accent-dim:rgba(46,122,80,0.10);
+  --text:#0f1f16;--text-muted:#4d7a5e;
+}
+@media(prefers-color-scheme:light){
+  :root:not([data-theme]){
+    --bg:#f0f7f3;--surface:#ffffff;--surface2:#e6f2eb;--border:#bdd8c8;
+    --accent:#2e7a50;--accent-lt:#1e5c3a;--accent-dim:rgba(46,122,80,0.10);
+    --text:#0f1f16;--text-muted:#4d7a5e;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{overflow-x:hidden;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'IBM Plex Sans',sans-serif;font-weight:300;
+  min-height:100vh;padding:40px 20px 80px;
+  transition:background .25s,color .25s;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(rgba(93,158,122,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(93,158,122,0.04) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.container{max-width:1020px;margin:0 auto;position:relative;z-index:1;}
+.theme-toggle{
+  position:fixed;top:18px;right:20px;display:flex;gap:3px;
+  z-index:1000;background:var(--surface);border:1px solid var(--border);padding:4px;
+}
+.theme-btn{
+  width:28px;height:28px;background:transparent;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);transition:all .2s;padding:0;
+}
+.theme-btn:hover{color:var(--accent);}
+.theme-btn.active{color:var(--accent);background:var(--accent-dim);}
+.theme-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+h1{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(26px,5vw,44px);font-weight:600;
+  line-height:1.15;color:var(--text);margin-bottom:10px;
+}
+h1 span{color:var(--accent);}
+h2{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(18px,3vw,26px);font-weight:600;
+  color:var(--text);margin-bottom:8px;
+}
+.subtitle{font-size:12px;color:var(--text-muted);font-family:'IBM Plex Mono',monospace;letter-spacing:0.5px;}
+.badge{
+  display:inline-block;font-family:'IBM Plex Mono',monospace;
+  font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  color:var(--accent);border:1px solid var(--accent-dim);padding:4px 14px;margin-bottom:18px;
+}
+.card-title{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:18px;
+}
+.hint{font-size:10px;color:var(--text-muted);margin-top:5px;font-family:'IBM Plex Mono',monospace;line-height:1.5;}
+.disclaimer{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  color:var(--text-muted);line-height:1.7;opacity:.7;margin-top:32px;
+}
+footer{
+  text-align:center;padding:32px 0 0;
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  letter-spacing:1px;color:var(--text-muted);opacity:.6;
+}
+/* ═══════════════════════════════════════════════════════════════
+   ENDE G-DESIGN
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── App-spezifisch ─────────────────────────────────────────── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-left:3px solid var(--accent);padding:28px 32px;margin-bottom:20px;
+}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;}
+@media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+label{display:block;margin-bottom:16px;}
+.label-text{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:6px;
+}
+input,select{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;
+  padding:10px 14px;outline:none;transition:border-color .2s;
+}
+input:focus,select:focus{border-color:var(--accent);}
+input.optional{border-style:dashed;opacity:.7;}
+input.optional:focus{opacity:1;}
+
+.btn-primary{
+  width:100%;padding:14px;background:var(--accent);color:#fff;border:none;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:3px;
+  text-transform:uppercase;cursor:pointer;transition:opacity .2s;
+}
+.btn-primary:hover{opacity:.85;}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;}
+
+.btn-secondary{
+  padding:10px 20px;background:transparent;color:var(--accent);
+  border:1px solid var(--accent);font-family:'IBM Plex Mono',monospace;
+  font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;
+  transition:all .2s;
+}
+.btn-secondary:hover{background:var(--accent-dim);}
+
+.tabs{display:flex;gap:0;margin-bottom:24px;border-bottom:1px solid var(--border);}
+.tab{
+  padding:10px 22px;font-family:'IBM Plex Mono',monospace;font-size:10px;
+  letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:var(--text-muted);
+  border:none;background:transparent;border-bottom:2px solid transparent;
+  margin-bottom:-1px;transition:all .2s;
+}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* KPI Boxes */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+@media(max-width:720px){.kpis{grid-template-columns:repeat(2,1fr);}}
+.kpi{
+  background:var(--accent-dim);border:1px solid var(--accent);
+  border-left:3px solid var(--accent);padding:16px 18px;
+}
+.kpi-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;}
+.kpi-value{font-family:'Playfair Display',serif;font-size:22px;color:var(--accent);}
+
+/* Tabelle */
+.table-wrap{overflow-x:auto;margin-top:8px;}
+table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:12px;}
+th{
+  background:var(--surface2);color:var(--text-muted);
+  font-size:9px;letter-spacing:2px;text-transform:uppercase;
+  padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+th:first-child{text-align:left;}
+td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text);text-align:right;}
+td:first-child{text-align:left;color:var(--text-muted);}
+tr:last-child td{border-bottom:none;}
+tr.year-sum td{background:var(--surface2);font-weight:500;color:var(--accent-lt);}
+tr.final td{background:var(--accent-dim);color:var(--accent);font-weight:600;}
+
+/* AI Panel */
+.ai-panel{
+  background:var(--surface2);border:1px solid var(--border);
+  border-left:3px solid var(--accent-lt);padding:20px 24px;margin-top:16px;
+  font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.7;
+  color:var(--text);
+}
+.ai-panel strong{color:var(--accent-lt);}
+.ai-thinking{
+  display:flex;align-items:center;gap:10px;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-muted);
+}
+.dot-pulse{display:flex;gap:4px;}
+.dot-pulse span{
+  width:6px;height:6px;background:var(--accent);border-radius:50%;
+  animation:dp 1.2s infinite;
+}
+.dot-pulse span:nth-child(2){animation-delay:.2s;}
+.dot-pulse span:nth-child(3){animation-delay:.4s;}
+@keyframes dp{0%,80%,100%{opacity:.2}40%{opacity:1}}
+
+.export-bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;}
+.result-area{display:none;}
+
+/* Darlehenstyp-Wähler */
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+@media(max-width:560px){.type-grid{grid-template-columns:1fr;}}
+.type-card{
+  background:var(--surface2);border:1px solid var(--border);
+  padding:16px 14px;cursor:pointer;transition:all .2s;text-align:center;
+}
+.type-card:hover,.type-card.selected{
+  border-color:var(--accent);background:var(--accent-dim);
+}
+.type-card.selected{border-left:3px solid var(--accent);}
+.type-name{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text);margin-bottom:4px;}
+.type-desc{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-muted);}
+
+/* Pflicht/optional-Indikator */
+.opt-badge{
+  display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;
+  letter-spacing:1px;color:var(--text-muted);border:1px solid var(--border);
+  padding:1px 6px;margin-left:6px;vertical-align:middle;
+}
+</style>
+</head>
+<body>
+
+<div class="theme-toggle">
+  <button class="theme-btn" id="btn-dark" onclick="setTheme('dark')" title="Dunkel">
+    <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+  <button class="theme-btn" id="btn-system" onclick="setTheme('system')" title="System">
+    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+  </button>
+  <button class="theme-btn" id="btn-light" onclick="setTheme('light')" title="Hell">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
+</div>
+
+<div class="container">
+
+  <header style="text-align:center;margin-bottom:40px;">
+    <h1><span>Tilgungs</span>plan-Rechner</h1>
+    <p class="subtitle">Annuitätendarlehen · Endfälliges Darlehen · Ratendarlehen · mit KI-Analyse · PDF &amp; CSV-Export</p>
+  </header>
+
+  <!-- Darlehenstyp -->
+  <div class="card">
+    <div class="card-title">Darlehenstyp</div>
+    <div class="type-grid">
+      <div class="type-card selected" id="type-ann" onclick="selectType('ann')">
+        <div class="type-name">Annuität</div>
+        <div class="type-desc">Gleichbleibende Rate, steigender Tilgungsanteil</div>
+      </div>
+      <div class="type-card" id="type-end" onclick="selectType('end')">
+        <div class="type-name">Endfällig</div>
+        <div class="type-desc">Nur Zinsen laufend, Tilgung am Ende</div>
+      </div>
+      <div class="type-card" id="type-rate" onclick="selectType('rate')">
+        <div class="type-name">Ratendarlehen</div>
+        <div class="type-desc">Gleichbleibende Tilgung, sinkende Rate</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Eingaben -->
+  <div class="card">
+    <div class="card-title">Darlehensparameter <span style="font-size:9px;color:var(--text-muted);margin-left:8px;">— Felder mit gestricheltem Rahmen sind optional / berechenbar</span></div>
+    <div class="grid2">
+      <label>
+        <span class="label-text">Darlehensbetrag (€)</span>
+        <input type="text" id="inp-betrag" placeholder="z.B. 250.000" oninput="formatNum(this)" onblur="formatNumBlur(this)">
+        <div class="hint">Nettokreditbetrag ohne Nebenkosten</div>
+      </label>
+      <label>
+        <span class="label-text">Sollzins p.a. (%)</span>
+        <input type="text" id="inp-zins" placeholder="z.B. 3,5">
+      </label>
+      <label id="wrap-laufzeit">
+        <span class="label-text">Laufzeit (Jahre) <span class="opt-badge">optional</span></span>
+        <input type="text" id="inp-laufzeit" class="optional" placeholder="z.B. 20 — oder leer lassen">
+        <div class="hint">Leer lassen wenn Rate bekannt</div>
+      </label>
+      <label id="wrap-rate">
+        <span class="label-text" id="label-rate">Monatliche Rate (€) <span class="opt-badge">optional</span></span>
+        <input type="text" id="inp-rate" class="optional" placeholder="z.B. 1.200 — oder leer lassen" oninput="formatNum(this)" onblur="formatNumBlur(this)">
+        <div class="hint">Leer lassen wenn Laufzeit bekannt</div>
+      </label>
+      <label>
+        <span class="label-text">Tilgungsfreie Jahre (Anfang)</span>
+        <input type="text" id="inp-tilgfrei" placeholder="0" value="0">
+        <div class="hint">In dieser Zeit nur Zinszahlung</div>
+      </label>
+      <label>
+        <span class="label-text">Startdatum</span>
+        <input type="month" id="inp-start">
+      </label>
+    </div>
+
+    <!-- Sondertilgungen -->
+    <div style="margin-top:8px;">
+      <div class="card-title" style="margin-bottom:12px;">Sondertilgungen <span style="font-size:9px;color:var(--text-muted);">— optional</span></div>
+      <div id="sonder-list"></div>
+      <button class="btn-secondary" onclick="addSonder()" style="margin-top:8px;">+ Sondertilgung hinzufügen</button>
+    </div>
+
+    <div style="margin-top:28px;">
+      <button class="btn-primary" onclick="calculate()">Tilgungsplan berechnen</button>
+    </div>
+  </div>
+
+  <!-- Ergebnisse -->
+  <div class="result-area" id="result-area">
+
+    <!-- KPIs -->
+    <div class="kpis" id="kpis"></div>
+
+    <!-- Tabs -->
+    <div class="card" style="padding-top:20px;">
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('plan')">Tilgungsplan</button>
+        <button class="tab" onclick="showTab('jahreszusammenfassung')">Jahresübersicht</button>
+        <button class="tab" onclick="showTab('ai')">KI-Analyse</button>
+      </div>
+
+      <div id="tab-plan">
+        <div class="table-wrap" id="table-monat"></div>
+      </div>
+
+      <div id="tab-jahreszusammenfassung" style="display:none;">
+        <div class="table-wrap" id="table-jahr"></div>
+      </div>
+
+      <div id="tab-ai" style="display:none;">
+        <div style="margin-bottom:16px;">
+          <button class="btn-primary" onclick="runAI()" id="btn-ai">KI-Analyse starten</button>
+        </div>
+        <div id="ai-output"></div>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="export-bar">
+      <button class="btn-secondary" onclick="exportCSV()">↓ CSV exportieren</button>
+      <button class="btn-secondary" onclick="exportPDF()">↓ PDF exportieren</button>
+    </div>
+
+  </div>
+
+  <p class="disclaimer">Alle Berechnungen sind Näherungswerte auf Basis der jeweils angegebenen Rechtsgrundlagen. Individuelle Faktoren bleiben unberücksichtigt. Kein Ersatz für individuelle Steuer- oder Rechtsberatung · Alle Angaben ohne Gewähr</p>
+
+</div>
+
+<footer>© Robin Glowania</footer>
+
+<script>
+/* ── Theme ── */
+function setTheme(t){
+  if(t==='system'){document.documentElement.removeAttribute('data-theme');}
+  else{document.documentElement.setAttribute('data-theme',t);}
+  try{localStorage.setItem('g-theme',t);}catch(e){}
+  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('active'));
+  var btn=document.getElementById('btn-'+t);if(btn)btn.classList.add('active');
+}
+(function(){var s='system';try{s=localStorage.getItem('g-theme')||'system';}catch(e){}setTheme(s);})();
+
+/* ── Hilfsfunktionen ── */
+const fmt = v => v==null?'—':v.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+'  €';
+const fmtN = v => v==null?'—':v.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const parseDe = s => parseFloat((s||'').replace(/\./g,'').replace(',','.')) || 0;
+
+function formatNum(inp){
+  let v = inp.value.replace(/[^\d,]/g,'');
+  inp.value = v;
+}
+function formatNumBlur(inp){
+  let v = parseDe(inp.value);
+  if(v>0) inp.value = v.toLocaleString('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+
+/* ── Darlehenstyp ── */
+let darlehensTyp = 'ann';
+function selectType(t){
+  darlehensTyp = t;
+  ['ann','end','rate'].forEach(x=>document.getElementById('type-'+x).classList.remove('selected'));
+  document.getElementById('type-'+t).classList.add('selected');
+  // UI-Anpassungen
+  const rLabel = document.getElementById('label-rate');
+  const rWrap  = document.getElementById('wrap-rate');
+  const lWrap  = document.getElementById('wrap-laufzeit');
+  if(t==='end'){
+    rLabel.innerHTML = 'Jährl. Zinszahlung (€) <span class="opt-badge">berechnet</span>';
+    document.getElementById('inp-rate').placeholder = 'wird automatisch berechnet';
+    document.getElementById('inp-rate').readOnly = true;
+    lWrap.style.display='';
+  } else {
+    rLabel.innerHTML = 'Monatliche Rate (€) <span class="opt-badge">optional</span>';
+    document.getElementById('inp-rate').placeholder = 'z.B. 1.200 — oder leer lassen';
+    document.getElementById('inp-rate').readOnly = false;
+    lWrap.style.display='';
+  }
+}
+
+/* ── Sondertilgungen ── */
+let sonderIdx = 0;
+function addSonder(){
+  const div = document.createElement('div');
+  div.className='grid3'; div.style.marginBottom='10px'; div.id='sonder-'+sonderIdx;
+  div.innerHTML = `
+    <label><span class="label-text">Jahr / Monat</span>
+      <input type="text" placeholder="z.B. 5 oder 2027-06" id="s-when-${sonderIdx}"></label>
+    <label><span class="label-text">Betrag (€)</span>
+      <input type="text" placeholder="z.B. 10.000" id="s-amt-${sonderIdx}" oninput="formatNum(this)" onblur="formatNumBlur(this)"></label>
+    <label style="display:flex;align-items:flex-end;">
+      <button class="btn-secondary" style="width:100%;" onclick="document.getElementById('sonder-${sonderIdx}').remove()">Entfernen</button>
+    </label>`;
+  document.getElementById('sonder-list').appendChild(div);
+  sonderIdx++;
+}
+
+function getSondertilgungen(){
+  const list=[];
+  document.querySelectorAll('#sonder-list .grid3').forEach(div=>{
+    const id=div.id.replace('sonder-','');
+    const when=(document.getElementById('s-when-'+id)||{}).value||'';
+    const amt=parseDe((document.getElementById('s-amt-'+id)||{}).value);
+    if(when && amt>0) list.push({when,amt});
+  });
+  return list;
+}
+
+/* ── Berechnung ── */
+let planData = null;
+
+function calculate(){
+  const betrag   = parseDe(document.getElementById('inp-betrag').value);
+  const zinsPA   = parseDe(document.getElementById('inp-zins').value)/100;
+  let laufzeit   = parseDe(document.getElementById('inp-laufzeit').value);
+  let rate       = parseDe(document.getElementById('inp-rate').value);
+  const tilgfrei = parseDe(document.getElementById('inp-tilgfrei').value)||0;
+  const startVal = document.getElementById('inp-start').value;
+  const sonder   = getSondertilgungen();
+
+  if(!betrag||!zinsPA){alert('Bitte Darlehensbetrag und Sollzins eingeben.');return;}
+
+  let rows=[], jahrRows=[], totalZins=0, totalTilg=0, totalSonder=0;
+
+  if(darlehensTyp==='end'){
+    // Endfälliges Darlehen
+    if(!laufzeit){alert('Bitte Laufzeit eingeben.');return;}
+    const zinsMtl = betrag*zinsPA/12;
+    let restschuld = betrag;
+    let monat=0, jahr=1, jzins=0, jrate=0, jsonder=0, jtilg=0;
+    const laufMonate = laufzeit*12;
+    for(let m=1;m<=laufMonate;m++){
+      const zins = restschuld*zinsPA/12;
+      let tilg=0, sonderBetrag=0;
+      if(m===laufMonate){ tilg=restschuld; }
+      // Sondertilgung
+      sonder.forEach(s=>{
+        const sm = parseWhen(s.when, startVal, m);
+        if(sm===m){ sonderBetrag+=s.amt; totalSonder+=s.amt; }
+      });
+      if(m<laufMonate && sonderBetrag>restschuld) sonderBetrag=restschuld;
+      restschuld = Math.max(0, restschuld - tilg - sonderBetrag);
+      totalZins += zins; totalTilg += tilg;
+      const rateM = zins + tilg + sonderBetrag;
+      const dm = dateLabel(startVal, m);
+      rows.push({m,dm,rate:rateM,zins,tilg:tilg+sonderBetrag,restschuld,sonder:sonderBetrag});
+      jzins+=zins; jrate+=rateM; jtilg+=tilg+sonderBetrag; jsonder+=sonderBetrag;
+      if(m%12===0||m===laufMonate){
+        jahrRows.push({jahr,jzins,jrate,jtilg,jsonder,restschuld});
+        jahr++;jzins=0;jrate=0;jtilg=0;jsonder=0;
+      }
+      if(restschuld<=0.01) break;
+    }
+    planData={rows,jahrRows,betrag,totalZins,totalTilg:betrag,laufMonate,typ:'end',sonder:totalSonder,rateFixed:zinsMtl};
+  } else if(darlehensTyp==='rate'){
+    // Ratendarlehen: feste Tilgungsrate
+    if(!laufzeit && !rate){alert('Bitte Laufzeit oder monatliche Tilgungsrate eingeben.');return;}
+    const tilgMtl = rate ? rate : betrag/(laufzeit*12);
+    let restschuld = betrag;
+    let m=0, abgezahlt=false, jahrN=1, jzins=0, jrate=0, jsonder=0, jtilg=0;
+    const maxM = laufzeit ? laufzeit*12 : 600;
+    for(m=1;m<=maxM;m++){
+      if(restschuld<=0.01){abgezahlt=true;break;}
+      const zins = restschuld*zinsPA/12;
+      let tilg = Math.min(tilgMtl, restschuld);
+      let sonderBetrag=0;
+      sonder.forEach(s=>{
+        const sm=parseWhen(s.when,startVal,m);
+        if(sm===m){sonderBetrag+=s.amt;}
+      });
+      sonderBetrag=Math.min(sonderBetrag, restschuld-tilg);
+      if(sonderBetrag<0)sonderBetrag=0;
+      restschuld=Math.max(0,restschuld-tilg-sonderBetrag);
+      totalZins+=zins; totalTilg+=tilg; totalSonder+=sonderBetrag;
+      const rateM=zins+tilg+sonderBetrag;
+      const dm=dateLabel(startVal,m);
+      rows.push({m,dm,rate:rateM,zins,tilg:tilg+sonderBetrag,restschuld,sonder:sonderBetrag});
+      jzins+=zins;jrate+=rateM;jtilg+=tilg+sonderBetrag;jsonder+=sonderBetrag;
+      if(m%12===0||restschuld<=0.01){
+        jahrRows.push({jahr:jahrN,jzins,jrate,jtilg,jsonder,restschuld});
+        jahrN++;jzins=0;jrate=0;jtilg=0;jsonder=0;
+      }
+    }
+    planData={rows,jahrRows,betrag,totalZins,totalTilg:betrag,laufMonate:m-1,typ:'rate',sonder:totalSonder};
+  } else {
+    // Annuitätendarlehen
+    const zinsMtl = zinsPA/12;
+    let annuitat;
+    if(rate && !laufzeit){
+      annuitat=rate;
+      laufzeit=Math.ceil(-Math.log(1-(betrag*zinsMtl/annuitat))/Math.log(1+zinsMtl)/12);
+    } else if(laufzeit && !rate){
+      const n=laufzeit*12;
+      annuitat = betrag*(zinsMtl*Math.pow(1+zinsMtl,n))/(Math.pow(1+zinsMtl,n)-1);
+    } else if(laufzeit && rate){
+      annuitat=rate;
+    } else {
+      alert('Bitte Laufzeit oder monatliche Rate eingeben.');return;
+    }
+    let restschuld=betrag;
+    let jahrN=1, jzins=0, jrate=0, jsonder=0, jtilg=0;
+    const maxM=laufzeit*12+tilgfrei*12;
+    for(let m=1;m<=maxM+1;m++){
+      if(restschuld<=0.01) break;
+      const zins=restschuld*zinsMtl;
+      let tilg = m<=tilgfrei*12 ? 0 : Math.min(annuitat-zins, restschuld);
+      if(tilg<0)tilg=0;
+      let sonderBetrag=0;
+      sonder.forEach(s=>{
+        const sm=parseWhen(s.when,startVal,m);
+        if(sm===m){sonderBetrag+=Math.min(s.amt,restschuld-tilg);}
+      });
+      if(sonderBetrag<0)sonderBetrag=0;
+      restschuld=Math.max(0,restschuld-tilg-sonderBetrag);
+      totalZins+=zins; totalTilg+=tilg; totalSonder+=sonderBetrag;
+      const rateM=zins+tilg+sonderBetrag;
+      const dm=dateLabel(startVal,m);
+      rows.push({m,dm,rate:rateM,zins,tilg:tilg+sonderBetrag,restschuld,sonder:sonderBetrag});
+      jzins+=zins;jrate+=rateM;jtilg+=tilg+sonderBetrag;jsonder+=sonderBetrag;
+      if(m%12===0||restschuld<=0.01){
+        jahrRows.push({jahr:jahrN,jzins,jrate,jtilg,jsonder,restschuld});
+        jahrN++;jzins=0;jrate=0;jtilg=0;jsonder=0;
+      }
+    }
+    planData={rows,jahrRows,betrag,totalZins,totalTilg:betrag,laufMonate:rows.length,typ:'ann',annuitat,sonder:totalSonder};
+  }
+
+  renderResults();
+}
+
+function parseWhen(when, startVal, currentM){
+  // "5" → im 5. Jahr = Monat 49-60; "2027-06" → relativer Monat
+  if(!startVal) return parseInt(when)*12 || 0;
+  if(when.includes('-')){
+    const [sy,sm]=startVal.split('-').map(Number);
+    const [wy,wm]=when.split('-').map(Number);
+    return (wy-sy)*12+(wm-sm)+1;
+  }
+  return (parseInt(when)-1)*12+1; // Beginn des n-ten Jahres
+}
+
+function dateLabel(startVal, m){
+  if(!startVal) return 'Monat '+m;
+  const [y,mo]=startVal.split('-').map(Number);
+  const d=new Date(y,mo-1+m-1,1);
+  return d.toLocaleDateString('de-DE',{month:'2-digit',year:'numeric'});
+}
+
+/* ── Rendering ── */
+function renderResults(){
+  if(!planData) return;
+  document.getElementById('result-area').style.display='';
+  renderKPIs();
+  renderMonat();
+  renderJahr();
+  document.getElementById('ai-output').innerHTML='';
+}
+
+function renderKPIs(){
+  const p=planData;
+  const jahre=(p.laufMonate/12).toFixed(1);
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="kpi-label">Darlehensbetrag</div><div class="kpi-value">${fmt(p.betrag)}</div></div>
+    <div class="kpi"><div class="kpi-label">Gesamtzinsen</div><div class="kpi-value">${fmt(p.totalZins)}</div></div>
+    <div class="kpi"><div class="kpi-label">Gesamtkosten</div><div class="kpi-value">${fmt(p.betrag+p.totalZins)}</div></div>
+    <div class="kpi"><div class="kpi-label">Laufzeit</div><div class="kpi-value">${jahre} J.</div></div>`;
+}
+
+function renderMonat(){
+  const p=planData;
+  let html=`<table><thead><tr>
+    <th>Datum</th><th>Rate (€)</th><th>Zinsen (€)</th><th>Tilgung (€)</th>
+    ${p.sonder>0?'<th>Sondertilgung (€)</th>':''}<th>Restschuld (€)</th>
+  </tr></thead><tbody>`;
+  p.rows.forEach(r=>{
+    html+=`<tr>
+      <td>${r.dm}</td>
+      <td>${fmtN(r.rate)}</td>
+      <td>${fmtN(r.zins)}</td>
+      <td>${fmtN(r.tilg - r.sonder)}</td>
+      ${p.sonder>0?`<td>${r.sonder>0?fmtN(r.sonder):'—'}</td>`:''}
+      <td>${fmtN(r.restschuld)}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table>`;
+  document.getElementById('table-monat').innerHTML=html;
+}
+
+function renderJahr(){
+  const p=planData;
+  let html=`<table><thead><tr>
+    <th>Jahr</th><th>Jahresrate (€)</th><th>davon Zinsen (€)</th><th>davon Tilgung (€)</th>
+    ${p.sonder>0?'<th>Sondertilgung (€)</th>':''}<th>Restschuld (€)</th>
+  </tr></thead><tbody>`;
+  p.jahrRows.forEach(r=>{
+    html+=`<tr class="year-sum">
+      <td>${r.jahr}</td>
+      <td>${fmtN(r.jrate)}</td>
+      <td>${fmtN(r.jzins)}</td>
+      <td>${fmtN(r.jtilg - r.jsonder)}</td>
+      ${p.sonder>0?`<td>${r.jsonder>0?fmtN(r.jsonder):'—'}</td>`:''}
+      <td>${fmtN(r.restschuld)}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table>`;
+  document.getElementById('table-jahr').innerHTML=html;
+}
+
+function showTab(t){
+  ['plan','jahreszusammenfassung','ai'].forEach(x=>{
+    document.getElementById('tab-'+x).style.display = x===t?'':'none';
+  });
+  document.querySelectorAll('.tab').forEach((b,i)=>{
+    b.classList.toggle('active', ['plan','jahreszusammenfassung','ai'][i]===t);
+  });
+}
+
+/* ── KI-Analyse ── */
+async function runAI(){
+  if(!planData){return;}
+  const btn=document.getElementById('btn-ai');
+  btn.disabled=true;
+  const out=document.getElementById('ai-output');
+  out.innerHTML=`<div class="ai-thinking"><div class="dot-pulse"><span></span><span></span><span></span></div> KI analysiert Ihren Tilgungsplan …</div>`;
+
+  const p=planData;
+  const typName={ann:'Annuitätendarlehen',end:'Endfälliges Darlehen',rate:'Ratendarlehen'}[p.typ];
+  const prompt=`Du bist ein erfahrener Finanzberater. Analysiere folgenden Tilgungsplan und gib eine strukturierte, verständliche Einschätzung auf Deutsch:
+
+Darlehenstyp: ${typName}
+Darlehensbetrag: ${fmt(p.betrag)}
+Gesamtzinsen: ${fmt(p.totalZins)}
+Gesamtkosten: ${fmt(p.betrag+p.totalZins)}
+Zinslastquote: ${((p.totalZins/(p.betrag+p.totalZins))*100).toFixed(1)}%
+Laufzeit: ${(p.laufMonate/12).toFixed(1)} Jahre
+${p.sonder>0?'Sondertilgungen gesamt: '+fmt(p.sonder):'Keine Sondertilgungen'}
+${p.annuitat?'Monatliche Rate: '+fmt(p.annuitat):''}
+
+Gib konkrete Hinweise zu:
+1. Beurteilung der Finanzierungsstruktur
+2. Chancen und Risiken dieses Darlehenstyps
+3. Empfehlungen zur Optimierung (Sondertilgungen, Anschlussfinanzierung, etc.)
+4. Steuerliche Hinweise falls relevant
+
+Formatiere die Antwort mit HTML-Tags (<strong>, <p>, <ul>, <li>). Halte es prägnant (max. 400 Wörter).`;
+
+  try{
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    const text=data.content?.map(c=>c.text||'').join('')||'Keine Antwort erhalten.';
+    out.innerHTML=`<div class="ai-panel">${text}</div>`;
+  } catch(e){
+    out.innerHTML=`<div class="ai-panel" style="color:var(--text-muted);">Fehler bei der KI-Analyse: ${e.message}</div>`;
+  }
+  btn.disabled=false;
+}
+
+/* ── CSV Export ── */
+function exportCSV(){
+  if(!planData) return;
+  const p=planData;
+  let csv='Monat;Datum;Rate (€);Zinsen (€);Tilgung (€);Sondertilgung (€);Restschuld (€)\n';
+  p.rows.forEach(r=>{
+    csv+=`${r.m};${r.dm};${r.rate.toFixed(2).replace('.',',')};${r.zins.toFixed(2).replace('.',',')};${(r.tilg-r.sonder).toFixed(2).replace('.',',')};${r.sonder.toFixed(2).replace('.',',')};${r.restschuld.toFixed(2).replace('.',',')}\n`;
+  });
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='tilgungsplan.csv';a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── PDF Export ── */
+function exportPDF(){
+  if(!planData || typeof jspdf==='undefined') return;
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const p=planData;
+  const typName={ann:'Annuitätendarlehen',end:'Endfälliges Darlehen',rate:'Ratendarlehen'}[p.typ];
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  doc.text('Tilgungsplan',14,18);
+  doc.setFontSize(10);
+  doc.setFont('helvetica','normal');
+  doc.text(`Typ: ${typName}   |   Darlehensbetrag: ${fmt(p.betrag)}   |   Gesamtzinsen: ${fmt(p.totalZins)}   |   Laufzeit: ${(p.laufMonate/12).toFixed(1)} Jahre`,14,26);
+
+  const head=[['Monat','Datum','Rate (€)','Zinsen (€)','Tilgung (€)','Sondertilgung (€)','Restschuld (€)']];
+  const body=p.rows.map(r=>[
+    r.m, r.dm,
+    fmtN(r.rate), fmtN(r.zins), fmtN(r.tilg-r.sonder),
+    r.sonder>0?fmtN(r.sonder):'—', fmtN(r.restschuld)
+  ]);
+
+  doc.autoTable({
+    head,body,startY:32,
+    styles:{fontSize:7,font:'helvetica',cellPadding:2},
+    headStyles:{fillColor:[46,122,80],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[240,247,243]},
+    columnStyles:{
+      0:{halign:'right'},2:{halign:'right'},3:{halign:'right'},
+      4:{halign:'right'},5:{halign:'right'},6:{halign:'right'}
+    }
+  });
+
+  doc.setFontSize(7);
+  doc.setTextColor(150);
+  doc.text('Alle Angaben ohne Gewähr · Kein Ersatz für individuelle Beratung · © Robin Glowania',14, doc.internal.pageSize.height-6);
+  doc.save('tilgungsplan.pdf');
+}
+
+// Startdatum auf heute setzen
+(function(){
+  const now=new Date();
+  const y=now.getFullYear();
+  const m=String(now.getMonth()+2).padStart(2,'0'); // nächster Monat
+  document.getElementById('inp-start').value=`${y}-${m}`;
+})();
+</script>
+</body>
+</html>
