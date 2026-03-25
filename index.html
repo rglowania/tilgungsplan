@@ -204,11 +204,11 @@ tr.yr td{background:var(--surface2);color:var(--accent-lt);font-weight:500;}
       <div style="display:grid;grid-template-columns:1fr 1fr auto 1fr;gap:12px;align-items:end;">
         <div>
           <span class="lbl">Jahre</span>
-          <input type="text" id="f-lz-j" placeholder="z.B. 20" onfocus="focusNum(this)" onblur="blurNum(this)">
+          <input type="text" id="f-lz-j" placeholder="z.B. 20" onfocus="focusNum(this)" onblur="blurNum(this)" oninput="clearRate()">
         </div>
         <div>
           <span class="lbl">Monate (0–11)</span>
-          <input type="text" id="f-lz-m" placeholder="z.B. 6">
+          <input type="text" id="f-lz-m" placeholder="z.B. 6" oninput="clearRate()">
         </div>
         <div style="display:flex;align-items:center;padding-bottom:2px;">
           <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);padding:0 8px;">oder</span>
@@ -216,7 +216,7 @@ tr.yr td{background:var(--surface2);color:var(--accent-lt);font-weight:500;}
         <div>
           <span class="lbl" id="lbl-rate">Monatliche Rate (€)</span>
           <input type="text" id="f-rate" placeholder="z.B. 500"
-            onfocus="focusNum(this)" onblur="blurNum(this)">
+            onfocus="focusNum(this)" onblur="blurNum(this)" oninput="clearLaufzeit()">
         </div>
       </div>
       <div class="hint" style="margin-top:10px;">Entweder Laufzeit (Jahre + Monate) <em>oder</em> monatliche Rate eingeben — nicht beides nötig</div>
@@ -336,6 +336,17 @@ function blurNum(inp) {
 (function(){
   _rawVals['f-betrag'] = 100000;
 })();
+
+// ── Gegenseitiges Leeren ──────────────────────────────────────
+function clearRate() {
+  document.getElementById('f-rate').value = '';
+  delete _rawVals['f-rate'];
+}
+function clearLaufzeit() {
+  document.getElementById('f-lz-j').value = '';
+  document.getElementById('f-lz-m').value = '';
+  delete _rawVals['f-lz-j'];
+}
 
 // ── Darlehenstyp ───────────────────────────────────────────────
 var dTyp = 'ann';
