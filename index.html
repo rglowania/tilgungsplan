@@ -89,7 +89,7 @@ input:focus,select:focus{border-color:var(--accent);}
 .tab{padding:10px 22px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:var(--text-muted);border:none;background:transparent;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;flex-wrap:wrap;}
 @media(max-width:720px){.kpis{grid-template-columns:repeat(2,1fr);}}
 .kpi{background:var(--accent-dim);border:1px solid var(--accent);border-left:3px solid var(--accent);padding:16px 18px;}
 .kpi-lbl{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;}
@@ -191,7 +191,6 @@ tr.yr td{background:var(--surface2);color:var(--accent-lt);font-weight:500;}
       <div class="mb16">
         <span class="lbl">Sollzins p.a. (%)</span>
         <input type="text" id="f-zins" value="2,00">
-        <div class="hint">EZB-Einlagensatz (Leitzins) · Stand 19.03.2026</div>
       </div>
     </div>
 
@@ -222,16 +221,27 @@ tr.yr td{background:var(--surface2);color:var(--accent-lt);font-weight:500;}
       <div class="hint" style="margin-top:10px;">Entweder Laufzeit (Jahre + Monate) <em>oder</em> monatliche Rate eingeben — nicht beides nötig</div>
     </div>
 
-    <!-- Zeile 3: Tilgungsfrei + Startdatum -->
+    <!-- Zeile 3: Disagio + Tilgungsfrei -->
     <div class="grid2" style="margin-bottom:20px;">
       <div class="mb16">
-        <span class="lbl">Tilgungsfreie Jahre (Anfang)</span>
-        <input type="text" id="f-tf" value="0">
-        <div class="hint">In dieser Zeit nur Zinszahlung</div>
+        <span class="lbl">Disagio (%)</span>
+        <input type="text" id="f-disagio" placeholder="z.B. 2" value="0">
+        <div class="hint">Abzug vom Nennbetrag bei Auszahlung · erhöht effektiven Zins</div>
+      </div>
+
+    </div>
+
+    <!-- Zeile 4: Auszahlung + Erste Tilgung -->
+    <div class="grid2" style="margin-bottom:20px;">
+      <div class="mb16">
+        <span class="lbl">Auszahlungsdatum</span>
+        <input type="month" id="f-auszahlung">
+        <div class="hint">Wann das Darlehen ausgezahlt wird</div>
       </div>
       <div class="mb16">
-        <span class="lbl">Startdatum</span>
+        <span class="lbl">Erste Tilgungsrate</span>
         <input type="month" id="f-start">
+        <div class="hint">Wann die erste Rate fällig ist</div>
       </div>
     </div>
 
@@ -292,9 +302,13 @@ function setTheme(t) {
 // Startdatum: nächster Monat (nach DOM ready)
 document.addEventListener('DOMContentLoaded', function(){
   var now = new Date();
-  var y = now.getFullYear(), m = now.getMonth() + 2;
+  var y = now.getFullYear(), m = now.getMonth() + 1; // aktueller Monat
   if (m > 12) { m = 1; y++; }
-  document.getElementById('f-start').value = y + '-' + String(m).padStart(2,'0');
+  document.getElementById('f-auszahlung').value = y + '-' + String(m).padStart(2,'0');
+  // Erste Rate: nächster Monat
+  var m2 = m + 1, y2 = y;
+  if (m2 > 12) { m2 = 1; y2++; }
+  document.getElementById('f-start').value = y2 + '-' + String(m2).padStart(2,'0');
 });
 
 // ── Zahlenformatierung ─────────────────────────────────────────
@@ -434,16 +448,26 @@ var planData = null;
 
 function doCalc() {
   showErr('');
-  var betrag   = _rawVals['f-betrag'] || parseDe(document.getElementById('f-betrag').value);
-  var zinsStr  = document.getElementById('f-zins').value.trim();
-  var zinsPA   = parseDe(zinsStr) / 100;
-  var lzJ      = parseDe(document.getElementById('f-lz-j').value);
-  var lzM      = parseDe(document.getElementById('f-lz-m').value);
-  var laufzeit = (lzJ || lzM) ? lzJ + lzM / 12 : 0;
-  var rate     = _rawVals['f-rate'] || parseDe(document.getElementById('f-rate').value);
-  var tilgfrei = parseDe(document.getElementById('f-tf').value) || 0;
-  var startV   = document.getElementById('f-start').value;
-  var sonder   = getSonder();
+  var betrag     = _rawVals['f-betrag'] || parseDe(document.getElementById('f-betrag').value);
+  var zinsStr    = document.getElementById('f-zins').value.trim();
+  var zinsPA     = parseDe(zinsStr) / 100;
+  var lzJ        = parseDe(document.getElementById('f-lz-j').value);
+  var lzM        = parseDe(document.getElementById('f-lz-m').value);
+  var laufzeit   = (lzJ || lzM) ? lzJ + lzM / 12 : 0;
+  var rate       = _rawVals['f-rate'] || parseDe(document.getElementById('f-rate').value);
+  // Tilgungsfreie Monate = Differenz zwischen Auszahlung und erster Rate
+  var tilgfreiM = 0;
+  if (auszahlV && startV && auszahlV < startV) {
+    var ap = auszahlV.split('-'), sp = startV.split('-');
+    tilgfreiM = (parseInt(sp[0]) - parseInt(ap[0])) * 12 + (parseInt(sp[1]) - parseInt(ap[1]));
+    if (tilgfreiM < 0) tilgfreiM = 0;
+  }
+  var tilgfrei = tilgfreiM / 12;
+  var disagioPct = parseDe(document.getElementById('f-disagio').value) || 0;
+  var auszahlBetrag = betrag * (1 - disagioPct / 100); // tatsächlich ausgezahlter Betrag
+  var startV     = document.getElementById('f-start').value;
+  var auszahlV   = document.getElementById('f-auszahlung').value;
+  var sonder     = getSonder();
 
   if (!betrag)  { showErr('Bitte Darlehensbetrag eingeben.'); return; }
   if (zinsStr === '') { showErr('Bitte Sollzins eingeben (0 ist erlaubt).'); return; }
@@ -486,7 +510,7 @@ function doCalc() {
       if (rs < 0.01) { totalM = m; break; }
       totalM = m;
     }
-    planData = {rows:rows, jahrRows:jahrRows, betrag:betrag, totZins:totZins, laufM:maxM, typ:'end', totSonder:totSonder, startV:startV};
+    planData = {rows:rows, jahrRows:jahrRows, betrag:betrag, auszahlBetrag:auszahlBetrag, disagioPct:disagioPct, totZins:totZins, laufM:maxM, typ:'end', totSonder:totSonder, startV:startV, auszahlV:auszahlV};
 
   } else if (dTyp === 'rate') {
     if (!laufzeit && !rate) { showErr('Bitte Laufzeit oder monatliche Tilgungsrate eingeben.'); return; }
@@ -506,7 +530,7 @@ function doCalc() {
       jZins+=z; jRate+=rM; jTilg+=(t+sb); jSonder+=sb;
       if (isJahresende(startV, m, maxM) || rs < 0.01) { flushJahr(rs); lastM = m; }
     }
-    planData = {rows:rows, jahrRows:jahrRows, betrag:betrag, totZins:totZins, laufM:lastM, typ:'rate', totSonder:totSonder, startV:startV};
+    planData = {rows:rows, jahrRows:jahrRows, betrag:betrag, auszahlBetrag:auszahlBetrag, disagioPct:disagioPct, totZins:totZins, laufM:lastM, typ:'rate', totSonder:totSonder, startV:startV, auszahlV:auszahlV};
 
   } else {
     // Annuität
@@ -545,7 +569,7 @@ function doCalc() {
       jZins+=z; jRate+=rM; jTilg+=(t+sb); jSonder+=sb;
       if (isJahresende(startV, m, maxM+12) || rs < 0.01) { flushJahr(rs); lastM = m; }
     }
-    planData = {rows:rows, jahrRows:jahrRows, betrag:betrag, totZins:totZins, laufM:lastM, typ:'ann', ann:ann, totSonder:totSonder, startV:startV};
+    planData = {rows:rows, jahrRows:jahrRows, betrag:betrag, auszahlBetrag:auszahlBetrag, disagioPct:disagioPct, totZins:totZins, laufM:lastM, typ:'ann', ann:ann, totSonder:totSonder, startV:startV, auszahlV:auszahlV};
   }
 
   renderAll();
@@ -559,12 +583,21 @@ function renderAll() {
 
   // KPIs
   var jahre = (p.laufM / 12).toFixed(1);
-  document.getElementById('kpis').innerHTML =
-    kpi('Darlehensbetrag', fmtTsd(p.betrag)) +
-    kpi('Gesamtzinsen', fmtTsd(p.totZins)) +
-    kpi('Gesamtkosten', fmtTsd(p.betrag + p.totZins)) +
-    kpi('Laufzeit', jahre + ' J.');
   function kpi(l,v){ return '<div class="kpi"><div class="kpi-lbl">'+l+'</div><div class="kpi-val">'+v+'</div></div>'; }
+  var disagioZeile = p.disagioPct > 0
+    ? kpi('Auszahlungsbetrag', fmtTsd(p.auszahlBetrag) + ' €') +
+      kpi('Disagio', fmtTsd(p.disagioPct, 2) + ' %')
+    : '';
+  var auszahlStr = p.auszahlV ? new Date(p.auszahlV+'-01').toLocaleDateString('de-DE',{month:'long',year:'numeric'}) : '—';
+  var ersteStr   = p.startV  ? new Date(p.startV +'-01').toLocaleDateString('de-DE',{month:'long',year:'numeric'}) : '—';
+  document.getElementById('kpis').innerHTML =
+    kpi('Nennbetrag', fmtTsd(p.betrag) + ' €') +
+    kpi('Gesamtzinsen', fmtTsd(p.totZins) + ' €') +
+    kpi('Gesamtkosten', fmtTsd(p.betrag + p.totZins) + ' €') +
+    kpi('Laufzeit', jahre + ' J.') +
+    (p.disagioPct > 0 ? kpi('Auszahlungsbetrag', fmtTsd(p.auszahlBetrag) + ' €') + kpi('Disagio', fmtTsd(p.disagioPct, 2) + ' %') : '') +
+    kpi('Auszahlung', auszahlStr) +
+    kpi('Erste Rate', ersteStr);
 
   // Monatstabelle mit Jahresabschluss-Summenzeilen
   var hasSb = p.totSonder > 0;
