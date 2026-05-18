@@ -156,8 +156,12 @@ tr.yr td{background:var(--surface2);color:var(--accent-lt);font-weight:500;}
 <div class="container">
   <header style="text-align:center;margin-bottom:40px;">
     <h1><span>Tilgungs</span>plan-Rechner</h1>
-    <p class="subtitle">Annuitätendarlehen · Endfälliges Darlehen · Ratendarlehen · KI-Analyse · Excel &amp; PDF</p>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:6px;">
+      <p class="subtitle" style="margin:0;">Annuitätendarlehen · Endfälliges Darlehen · Ratendarlehen · KI-Analyse · Excel &amp; PDF</p>
+      <a href="../" id="gtools-link" style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);padding:3px 10px;transition:all .2s;">Part of gTools ↗</a>
+    </div>
   </header>
+  <style>#gtools-link:hover{color:var(--accent);border-color:var(--accent);}</style>
 
   <!-- Darlehenstyp -->
   <div class="card">
@@ -222,18 +226,8 @@ tr.yr td{background:var(--surface2);color:var(--accent-lt);font-weight:500;}
       <div class="hint" style="margin-top:10px;">Entweder Laufzeit (Jahre + Monate) <em>oder</em> monatliche Rate eingeben — nicht beides nötig</div>
     </div>
 
-    <!-- Zeile 3: Disagio + Tilgungsfrei -->
-    <div class="grid2" style="margin-bottom:20px;">
-      <div class="mb16">
-        <span class="lbl">Disagio (%)</span>
-        <input type="text" id="f-disagio" placeholder="z.B. 2" value="0">
-        <div class="hint">Abzug vom Nennbetrag bei Auszahlung · erhöht effektiven Zins</div>
-      </div>
-
-    </div>
-
-    <!-- Zeile 4: Auszahlung + Erste Tilgung -->
-    <div class="grid2" style="margin-bottom:20px;">
+    <!-- Zeile 3: Auszahlung + Erste Tilgung + Disagio -->
+    <div class="grid3" style="margin-bottom:20px;">
       <div class="mb16">
         <span class="lbl">Auszahlungsdatum</span>
         <input type="month" id="f-auszahlung">
@@ -242,7 +236,12 @@ tr.yr td{background:var(--surface2);color:var(--accent-lt);font-weight:500;}
       <div class="mb16">
         <span class="lbl">Erste Tilgungsrate</span>
         <input type="month" id="f-start">
-        <div class="hint">Wann die erste Rate fällig ist</div>
+        <div class="hint">Differenz = tilgungsfreie Zeit</div>
+      </div>
+      <div class="mb16">
+        <span class="lbl">Disagio (%)</span>
+        <input type="text" id="f-disagio" placeholder="z.B. 2" value="0">
+        <div class="hint">Abzug vom Nennbetrag · erhöht effektiven Zins</div>
       </div>
     </div>
 
@@ -282,7 +281,7 @@ tr.yr td{background:var(--surface2);color:var(--accent-lt);font-weight:500;}
   <p class="disclaimer">Alle Berechnungen sind Näherungswerte auf Basis der jeweils angegebenen Rechtsgrundlagen. Individuelle Faktoren bleiben unberücksichtigt. Kein Ersatz für individuelle Steuer- oder Rechtsberatung · Alle Angaben ohne Gewähr</p>
 </div>
 
-<footer>© Robin Glowania · Zuletzt aktualisiert: 07.05.2026</footer>
+<footer>© Robin Glowania · Zuletzt aktualisiert: 18.05.2026</footer>
 
 <script>
 // ── Theme ──────────────────────────────────────────────────────
@@ -424,6 +423,29 @@ function getSonder() {
   return list;
 }
 
+// ── Effektivzins (interne Rendite IRR) ─────────────────────────
+// Newton-Verfahren auf den monatlichen Zinssatz, Annahme: gleichmäßige Cashflows
+function irrEffectiveRate(auszahlung, rows) {
+  // NPV(i) = -auszahlung + sum(rate[k] / (1+i)^k)
+  var cf = rows.map(function(r){ return r.r; });
+  var n = cf.length;
+  var i = 0.005; // Startwert 0.5% monatlich
+  for (var iter = 0; iter < 60; iter++) {
+    var npv = -auszahlung, dnpv = 0;
+    for (var k = 0; k < n; k++) {
+      var df = Math.pow(1 + i, k + 1);
+      npv  += cf[k] / df;
+      dnpv -= (k + 1) * cf[k] / (df * (1 + i));
+    }
+    if (Math.abs(dnpv) < 1e-12) break;
+    var delta = npv / dnpv;
+    i -= delta;
+    if (Math.abs(delta) < 1e-10) break;
+    if (i < -0.99) return null;
+  }
+  return Math.pow(1 + i, 12) - 1; // monatlich → jährlich
+}
+
 // ── Datum ──────────────────────────────────────────────────────
 function dateLabel(startVal, m) {
   if (!startVal) return 'Monat ' + m;
@@ -456,19 +478,21 @@ function doCalc() {
   var lzM        = parseDe(document.getElementById('f-lz-m').value);
   var laufzeit   = (lzJ || lzM) ? lzJ + lzM / 12 : 0;
   var rate       = _rawVals['f-rate'] || parseDe(document.getElementById('f-rate').value);
-  // Tilgungsfreie Monate = Differenz zwischen Auszahlung und erster Rate
-  var tilgfreiM = 0;
-  if (auszahlV && startV && auszahlV < startV) {
-    var ap = auszahlV.split('-'), sp = startV.split('-');
-    tilgfreiM = (parseInt(sp[0]) - parseInt(ap[0])) * 12 + (parseInt(sp[1]) - parseInt(ap[1]));
-    if (tilgfreiM < 0) tilgfreiM = 0;
-  }
-  var tilgfrei = tilgfreiM / 12;
   var disagioPct = parseDe(document.getElementById('f-disagio').value) || 0;
-  var auszahlBetrag = betrag * (1 - disagioPct / 100); // tatsächlich ausgezahlter Betrag
+  var auszahlBetrag = betrag * (1 - disagioPct / 100);
   var startV     = document.getElementById('f-start').value;
   var auszahlV   = document.getElementById('f-auszahlung').value;
   var sonder     = getSonder();
+
+  // Tilgungsfreie Monate = Differenz zwischen Auszahlung und erster Rate minus 1
+  // (Auszahl. April + 1. Rate Mai = normale Konstellation, 0 tilgungsfrei)
+  var tilgfreiM = 0;
+  if (auszahlV && startV && auszahlV < startV) {
+    var ap = auszahlV.split('-'), sp = startV.split('-');
+    var diff = (parseInt(sp[0]) - parseInt(ap[0])) * 12 + (parseInt(sp[1]) - parseInt(ap[1]));
+    tilgfreiM = Math.max(0, diff - 1);
+  }
+  var tilgfrei = tilgfreiM / 12;
 
   if (!betrag)  { showErr('Bitte Darlehensbetrag eingeben.'); return; }
   if (zinsStr === '') { showErr('Bitte Sollzins eingeben (0 ist erlaubt).'); return; }
@@ -591,12 +615,22 @@ function renderAll() {
     : '';
   var auszahlStr = p.auszahlV ? new Date(p.auszahlV+'-01').toLocaleDateString('de-DE',{month:'long',year:'numeric'}) : '—';
   var ersteStr   = p.startV  ? new Date(p.startV +'-01').toLocaleDateString('de-DE',{month:'long',year:'numeric'}) : '—';
+  // Effektivzins via Newton bei Disagio > 0
+  var effStr = '—';
+  if (p.disagioPct > 0 && p.auszahlBetrag > 0 && p.rows.length > 0) {
+    var eff = irrEffectiveRate(p.auszahlBetrag, p.rows);
+    if (eff !== null) effStr = fmtTsd(eff * 100, 2) + ' %';
+  }
   document.getElementById('kpis').innerHTML =
     kpi('Nennbetrag', fmtTsd(p.betrag) + ' €') +
     kpi('Gesamtzinsen', fmtTsd(p.totZins) + ' €') +
     kpi('Gesamtkosten', fmtTsd(p.betrag + p.totZins) + ' €') +
     kpi('Laufzeit', jahre + ' J.') +
-    (p.disagioPct > 0 ? kpi('Auszahlungsbetrag', fmtTsd(p.auszahlBetrag) + ' €') + kpi('Disagio', fmtTsd(p.disagioPct, 2) + ' %') : '') +
+    (p.disagioPct > 0
+      ? kpi('Auszahlungsbetrag', fmtTsd(p.auszahlBetrag) + ' €') +
+        kpi('Disagio', fmtTsd(p.disagioPct, 2) + ' %') +
+        kpi('Effektivzins p.a.', effStr)
+      : '') +
     kpi('Auszahlung', auszahlStr) +
     kpi('Erste Rate', ersteStr);
 
